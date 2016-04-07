@@ -1,0 +1,66 @@
+GENERAL INFORMATION
+-------------------
+
+This repository contains a shell script that can be used to change the shebang
+line of one executable text file or of all the executables text files in a
+directory tree.
+
+The script is named switch_shebang.  You can have it print its documentation
+by calling it with the --help option.
+
+Please read the documentations below for details.
+
+The script has been validated on a Debian GNU/Linux system, with dash as
+/bin/sh.
+
+DOCUMENTATION FOR SCRIPT switch_shebang
+---------------------------------------
+
+Usage:
+
+    switch_shebang [-q] FILE OLD_SHEBANG NEW_SHEBANG
+
+    switch_shebang [-q] DIRECTORY OLD_SHEBANG NEW_SHEBANG
+
+    switch_shebang -h|--help
+
+Description:
+
+    Substitute the first line with another line in executable text files.
+
+    WARNING: switch_shebang does not do any backup of the modified files.
+    Make sure you have a copy of your files before using it.
+
+    switch_shebang is useful when you need to change the shebang line
+    in multiple scripts.
+
+    The first argument must be one of the following:
+
+        - The path to an executable text file;
+
+        - The path to a directory supposed to contain one or more
+        executable text files.
+
+    The second argument is the line to be replaced.
+
+    The third argument is the replacement line.
+
+    When the first argument is a directory, the executable text files
+    are searched in this directory and all its subdirectories.
+
+Options:
+
+    -q, --quiet
+        Suppress output.
+
+    -h, --help
+        Display this documentation and exit.
+
+Example:
+
+    switch_shebang path/to/my/scripts '#!/bin/dash' '#!/bin/sh'
+
+==============================================================================
+Author: Thierry Rascle (thierr26@free.fr)
+
+Unlicense license. Please refer to the LICENSE file.

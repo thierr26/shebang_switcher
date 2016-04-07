@@ -1,0 +1,323 @@
+#!/bin/sh
+
+# Copyright (C) 2016 Thierry Rascle <thierr26@free.fr>
+# Unlicense license. Please refer to the LICENSE file.
+
+# -----------------------------------------------------------------------------
+
+# Prepends the argument with "FATAL ERROR: " and echoes it to standard error,
+# then terminates the script with exit status 1. If no argument or empty
+# argument given, echoes "FATAL_ERROR" to standard error then terminates the
+# script with exit status 1.
+#
+# ARGUMENT:
+# $1: Any string.
+fatal() {
+
+    local FATAL_ERROR="FATAL ERROR";
+    if [ $# -gt 0 ] && [ -n "$1" ]; then
+        echo "$FATAL_ERROR: $1">&2;
+    else
+        echo "$FATAL_ERROR">&2;
+    fi;
+    echo "Use \"$SCRIPT_PATH --help\" for documentation">&2;
+
+    exit 1;
+}
+
+# -----------------------------------------------------------------------------
+
+# Echoes the first argument being an executable command. Echoes nothing if none
+# of the arguments is an executable command.
+#
+# ARGUMENTS:
+# Any strings.
+echo_cmd() {
+    until [ $# -eq 0 ] || command -v "$1"; do
+        shift;
+    done;
+}
+
+# -----------------------------------------------------------------------------
+
+# Echoes the first argument being an executable command and returns with exit
+# status 0. If none of the arguments is an executable command, then terminates
+# the script with a call to function fatal and thus exit status 1.
+#
+# ARGUMENTS:
+# Any strings.
+echo_cmd_fatal() {
+
+    local LAST_CMD;
+    until [ $# -eq 0 ] || command -v "$1"; do
+        LAST_CMD="$1";
+        shift;
+    done;
+
+    if [ $# -eq 0 ]; then
+        if [ -n "$LAST_CMD" ]; then
+            fatal "$LAST_CMD does not seem to be installed.";
+        else
+            fatal;
+        fi;
+    fi;
+}
+
+# -----------------------------------------------------------------------------
+
+# Prints the documentation for the script to the standard output.
+#
+# ARGUMENT
+# $1: Script name.
+documentation() {
+
+    local SCRIPT_NAME="$1";
+    local FMT="fmt";
+    local CMD=$(echo_cmd_fatal "$FMT" cat);
+    if [ ${CMD##*/} = "$FMT" ] && [ -n "$(echo_cmd tput)" ]; then
+        CMD="fmt --width=$(tput cols)";
+    fi;
+
+    $CMD <<EOF
+Usage:
+
+    $SCRIPT_NAME [-q] FILE OLD_SHEBANG NEW_SHEBANG
+
+    $SCRIPT_NAME [-q] DIRECTORY OLD_SHEBANG NEW_SHEBANG
+
+    $SCRIPT_NAME -h|--help
+
+Description:
+
+    Substitute the first line with another line in executable text files.
+
+    WARNING: $SCRIPT_NAME does not do any backup of the modified files.  Make \
+sure you have a copy of your files before using it.
+
+    $SCRIPT_NAME is useful when you need to change the shebang line in \
+multiple scripts.
+
+    The first argument must be one of the following:
+
+        - The path to an executable text file;
+
+        - The path to a directory supposed to contain one or more executable \
+text files.
+
+    The second argument is the line to be replaced.
+
+    The third argument is the replacement line.
+
+    When the first argument is a directory, the executable text files are \
+searched in this directory and all its subdirectories.
+
+Options:
+
+    -q, --quiet
+        Suppress output.
+
+    -h, --help
+        Display this documentation and exit.
+
+Example:
+
+    $SCRIPT_NAME path/to/my/scripts '#!/bin/dash' '#!/bin/sh'
+EOF
+}
+
+# -----------------------------------------------------------------------------
+
+# Returns 0 if the argument starts with "-". Returns 1 otherwise.
+#
+# ARGUMENT
+# $1: Any string.
+has_hyphen_leader() {
+    if [ -n "$1" ] && [ -z "${1%%-*}" ]; then
+        return 0;
+    else
+        return 1;
+    fi;
+}
+
+# -----------------------------------------------------------------------------
+
+# Returns 0 if the argument starts with "--". Returns 1 otherwise.
+#
+# ARGUMENT
+# $1: Any string.
+has_double_hyphen_leader() {
+    if [ -n "$1" ] && [ -z ${1%%--*} ]; then
+        return 0;
+    else
+        return 1;
+    fi;
+}
+
+# -----------------------------------------------------------------------------
+
+# Is supposed to be called with all the arguments to the current script.
+#
+# Affects the following variables:
+#   HELP_OPT:                 true if the user has requested the printing of
+#                             the script documentation, false otherwise.
+#   QUIET_OPT:                true if the user does not want any output.
+#   TARGET:                   First argument to the script.
+#   OLD_SHEBANG:              Second argument to the script.
+#   NEW_SHEBANG:              Third argument to the script.
+#
+# An unrecognized option or a missing or empty argument will cause the script
+# to terminate with a call to the fatal function and thus exit status 1.
+#
+# ARGUMENTS
+# All the arguments to the current script.
+process_args() {
+
+    HELP_OPT=false;
+    QUIET_OPT=false;
+
+    # Process the options.
+    local OPT_STRING;
+    local N;
+    local K;
+    local OPT;
+    local OPT_PROCESSED=false;
+    while ! $OPT_PROCESSED && [ $# -gt 0 ] \
+            && has_hyphen_leader "$1" \
+            && [ "$1" != "-" ]; do
+
+        OPT_STRING=${1#?}; # If $1 is "-abc" then $OPT_STRING is "abc".
+                           # If $1 is "--force" then $OPT_STRING is "-force".
+
+        if has_double_hyphen_leader "$1"; then
+            N=1;
+        else
+            N=${#OPT_STRING};
+        fi;
+
+        for K in $(seq 1 $N); do
+            if [ $N -gt 1 ]; then
+                OPT=${OPT_STRING%${OPT_STRING#?}}; # If $OPT_STRING is "abc" at
+                                                   # the beginning of the loop,
+                                                   # then $OPT is "a",
+                                                   # then "b", then "c".
+            else
+                OPT="$OPT_STRING";
+            fi;
+
+            case "-$OPT" in
+                --) OPT_PROCESSED=true;;
+                -q|--quiet) QUIET_OPT=true;;
+                -h|--help) HELP_OPT=true;;
+                *) fatal "Unrecognized option: -$OPT"
+            esac;
+
+            if [ $N -gt 1 ]; then
+                OPT_STRING=${OPT_STRING#?};
+            fi;
+        done;
+
+        shift;
+    done;
+
+    # Process the other arguments.
+    if [ $# -eq 0 ] && ! $HELP_OPT; then
+        fatal "Argument missing."
+    fi;
+    if ! $HELP_OPT; then
+        if [ $# -gt 3 ]; then
+            fatal "Too many arguments."
+        fi;
+        if [ $# -lt 3 ]; then
+            fatal "Missing arguments."
+        fi;
+        if [ -z "$1" ]; then
+            fatal "The first argument must be an executable text file or a \
+directory."
+        fi;
+        if [ -z "$2" ]; then
+            fatal "The second argument must be the shebang line to be \
+replaced."
+        fi;
+        if [ -z "$2" ]; then
+            fatal "The third argument must be the replacement shebang line."
+        fi;
+        TARGET="$1";
+        OLD_SHEBANG="$2";
+        NEW_SHEBANG="$3";
+    fi;
+}
+
+# -----------------------------------------------------------------------------
+
+# Return 0 if the argument is an executable text file, 1 otherwise.  In the
+# case where there is a second argument and it is true, then function causes
+# the script to terminate with a non zero exit code if if the argument is not
+# an executable text file.
+#
+# ARGUMENT
+# $1: A file or directory name.
+# $2: A logical flag (true to cause the script to exit if $1 is not an
+# executable text file.
+is_executable_text_file() {
+    if [ -x "$1" ] && [ -f "$1" ] \
+            && [ $(file --mime "$1"|grep -c "\<text\>") -gt 0 ]; then
+        return 0;
+    elif $2; then
+        fatal "Not an executable text file: $1"
+    else
+        return 1;
+    fi;
+}
+
+# -----------------------------------------------------------------------------
+
+set -o nounset # Causes the script to terminate whenever an uninitialized
+               # variable is used.
+
+set -o errexit # Causes the script to terminate whenever a statement returns a
+               # non-true value.
+
+# Get the path to the script.
+SCRIPT_PATH="$0";
+
+# Get the base name of the script.
+SCRIPT_BASE_NAME=$(basename "$SCRIPT_PATH");
+
+process_args "$@";
+
+if $HELP_OPT; then
+    documentation $SCRIPT_BASE_NAME;
+else
+    if ! [ -d "$TARGET" ]; then
+        # The first argument is not a directory.
+
+        is_executable_text_file "$TARGET" true;
+        sed -i "1,1s:^$OLD_SHEBANG$:$NEW_SHEBANG:" "$TARGET";
+        if ! $QUIET_OPT; then
+            echo "$TARGET": First line changed from to "$OLD_SHEBANG" to \
+"$NEW_SHEBANG"
+        fi;
+    else
+        # The first argument is a directory.
+
+        SCRIPT_FULL_PATH=$(readlink -f $SCRIPT_PATH);
+        if $QUIET_OPT; then
+            Q=-q;
+        else
+            Q=;
+        fi;
+        for F in $(find "$TARGET" -path "*/.*" -prune -o -print); do
+            if is_executable_text_file "$F" false; then
+
+                # Recursive invocation of the script.
+                set +o errexit
+                "$SCRIPT_FULL_PATH" $Q "$F" "$OLD_SHEBANG" "$NEW_SHEBANG";
+                if [ $? -ne 0 ]; then
+                    echo "Error while processing $TARGET";
+                fi;
+                set -o errexit
+
+            fi;
+        done;
+    fi;
+fi;
