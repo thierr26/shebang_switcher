@@ -1,8 +1,5 @@
 #!/bin/sh
 
-# Copyright (C) 2016 Thierry Rascle <thierr26@free.fr>
-# Unlicense license. Please refer to the LICENSE file.
-
 # -----------------------------------------------------------------------------
 
 # Prepends the argument with "FATAL ERROR: " and echoes it to standard error,
