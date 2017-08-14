@@ -257,7 +257,7 @@ replaced."
 # executable text file.
 is_executable_text_file() {
     if [ -x "$1" ] && [ -f "$1" ] \
-            && [ $(file --mime "$1"|grep -c "\<text\>") -gt 0 ]; then
+            && [ $(file -b --mime "$1"|grep -c "\<text\>") -gt 0 ]; then
         return 0;
     elif $2; then
         fatal "Not an executable text file: $1"
