@@ -235,7 +235,7 @@ directory."
             fatal "The second argument must be the shebang line to be \
 replaced."
         fi;
-        if [ -z "$2" ]; then
+        if [ -z "$3" ]; then
             fatal "The third argument must be the replacement shebang line."
         fi;
         TARGET="$1";
